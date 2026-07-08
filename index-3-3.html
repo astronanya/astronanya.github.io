@@ -665,19 +665,17 @@ const LEVELS = [
 {
   name:'RESEARCH FACILITY', subtitle:'EVERYTHING AT ONCE', accent:'#eef2f7', theme:'facility',
   width:2500, spawn:{x:28,y:190},
-  platforms:[ ground(0,600), ground(660,500), ground(1216,934), ground(2206,294),
-    Object.assign(ground(2150,56), {breach:true}),
+  platforms:[ ground(0,600), ground(660,500), ground(1216,1284),
     block(1300,176,52,10), plat(2020,168,48), plat(2352,168,48) ],
   enemies:[
-    crawler(300), turret(520,212,-1,2.4,0), leaper(760),
-    crawler(900,GROUND_Y,24), turret(1100,212,-1,2.2,0.7),
-    pirate(1316,176,-1,2.5,0), leaper(1460), crawler(1560,GROUND_Y,25),
-    miniboss(2180,1980), crawler(2280,GROUND_Y,24)
+    crawler(300), turret(520,212,-1,2.8,0), leaper(760),
+    crawler(900), turret(1100,212,-1,2.6,0.7),
+    pirate(1316,176,-1,2.9,0), leaper(1460), crawler(1560),
+    crawler(2280)
   ],
-  hazards:[ laser(820,1.9,0), laser(1030,1.9,0.75), laser(1650,1.8,0), laser(1760,1.8,0.7) ],
-  exit:null,
-  breach:{x:2150,w:56},
-  skins:{ crawler:{tint:{e:'s',E:'G'}} },
+  hazards:[ laser(820,2.2,0), laser(1030,2.2,0.75), laser(1650,2.1,0), laser(1760,2.1,0.7) ],
+  exit:{x:2436,y:GROUND_Y-34},
+  skins:{ crawler:{tint:{e:'o',E:'R'}} },
   mechanic:null
 },
 /* ---------- LEVEL 10 : THE BACKROOMS ---------- */
@@ -734,6 +732,7 @@ function loadLevel(i){
     hazards: def.hazards.map(h => Object.assign({}, h)),
     projectiles: [], fx: [],
     exitOpen: !def.exitLocked,
+    breachBroken: !!def.breach && !def.enemies.some(e => e.type==='miniboss'),
     scrollX: 0, tpCooldown: 0
   };
   player = {
@@ -790,22 +789,47 @@ function onGuardianDown(){
 function updateDrawNoclip(dt){
   const T = stateT, D = 2.3;
   ctx.fillStyle = '#08070a'; ctx.fillRect(0,0,VW,VH);
-  for(let i=0;i<10;i++){
-    const yy = ((i*44 - T*280) % (VH+60) + (VH+60)) % (VH+60) - 30;
-    ctx.fillStyle = 'rgba(150,150,160,0.16)';
-    ctx.fillRect(58, Math.round(yy), 3, 26); ctx.fillRect(VW-61, Math.round(yy)+13, 3, 26);
-    ctx.fillStyle = 'rgba(150,150,160,0.08)';
-    ctx.fillRect(130, Math.round(yy)+7, 2, 20); ctx.fillRect(VW-132, Math.round(yy)+20, 2, 20);
+  // speed lines rushing up through the void
+  for(let i=0;i<26;i++){
+    const x = Math.floor(hsh(i)*VW);
+    const yy = ((i*37 - T*(340+hsh(i+9)*160)) % (VH+40) + (VH+40)) % (VH+40) - 20;
+    ctx.fillStyle = 'rgba(150,150,170,'+(0.05+hsh(i+5)*0.14).toFixed(2)+')';
+    ctx.fillRect(x, Math.round(yy), 1, 8+hsh(i+3)*20);
   }
+  // backrooms glow bleeding up from below through scanlines
   const g = Math.min(1, T/D);
-  ctx.fillStyle = 'rgba(216,194,78,'+(g*0.55).toFixed(3)+')';
-  ctx.fillRect(0, Math.round(VH - g*VH*0.9), VW, Math.round(g*VH*0.9)+2);
-  ctx.fillStyle = 'rgba(255,246,190,'+(g*0.3).toFixed(3)+')';
-  ctx.fillRect(0, Math.round(VH - g*VH*0.45), VW, Math.round(g*VH*0.45)+2);
-  const wob = Math.sin(T*8)*6;
-  drawSprite(SPR.player_jump, VW/2-6+wob, 58 + Math.sin(T*3)*8, wob<0, 1);
-  if(T > 0.5 && T < 1.7) drawTextShadow('FALLING...', VW/2, 30, 1, '#d8c24e', '#241f08', 'center');
-  if(T >= D){ loadLevel(9); setState('play'); }
+  for(let y=VH; y>VH-g*VH*0.9; y-=3){
+    const a = (1-(VH-y)/(g*VH*0.9))*0.5*g;
+    ctx.fillStyle = 'rgba(216,194,78,'+a.toFixed(3)+')';
+    ctx.fillRect(0, y, VW, 2);
+  }
+  // horizontal reality tears — seeded per time-slice so they stutter
+  const seed = Math.floor(T*9);
+  for(let i=0;i<5;i++){
+    if(hsh(seed*7+i)<0.45) continue;
+    const ty = Math.floor(hsh(seed*3+i*11)*VH);
+    const th = 2 + Math.floor(hsh(seed+i*5)*5);
+    const off = Math.round((hsh(seed*5+i)-0.5)*26);
+    try{
+      const img = ctx.getImageData(0, ty, VW, th);
+      ctx.putImageData(img, off, ty);
+    }catch(e){}
+    ctx.fillStyle = 'rgba(140,220,255,0.08)'; ctx.fillRect(0, ty, VW, 1);
+  }
+  // afterimages peeling upward off the player
+  const wob = Math.sin(T*8)*6, py = 110 + Math.sin(T*3)*8;
+  ctx.globalAlpha = 0.10; drawSprite(SPR.player_jump, VW/2-6+wob*1.6, py-26, wob<0, 1);
+  ctx.globalAlpha = 0.22; drawSprite(SPR.player_jump, VW/2-6+wob*1.3, py-13, wob<0, 1);
+  ctx.globalAlpha = 1;    drawSprite(SPR.player_jump, VW/2-6+wob,     py,    wob<0, 1);
+  // pixels flaking off her, streaming up
+  for(let i=0;i<10;i++){
+    const fy = py+14 - ((T*90 + i*23) % 70);
+    ctx.fillStyle = i%2? 'rgba(238,242,247,0.5)' : 'rgba(216,194,78,0.5)';
+    ctx.fillRect(Math.round(VW/2-5+hsh(i)*10+wob), Math.round(fy), 1, 1);
+  }
+  if(T > 0.4 && T < 1.9 && Math.floor(T*10)%3!==0)
+    drawTextShadow('F A L L I N G . . .', VW/2, 34, 1, '#d8c24e', '#241f08', 'center');
+  if(T >= D){ loadLevel(9); setState('card'); }
 }
 
 function killPlayer(){
@@ -1177,7 +1201,7 @@ function updateEnemies(dt){
     const er = {x:e.x+1, y:ey+1, w:e.w-2, h:e.h-2};
     if(!rectsOverlap(pl, er)) continue;
 
-    const stompable = (e.type!=='turret');
+    const stompable = true;
     const invulnNow = (e.invuln||0) > 0;
     const falling = pl.vy > 30 && pl.prevBottom <= ey + 9;
 
@@ -1195,7 +1219,7 @@ function updateEnemies(dt){
       } else {
         e.dieT = 0;
       }
-    } else if(!invulnNow || e.type==='turret'){
+    } else if(!invulnNow){
       killPlayer();
     }
   }
@@ -1778,27 +1802,73 @@ function drawThemeBackdrop(theme, camx, t){
       } else if(warn){
         ctx.fillStyle = 'rgba(70,50,110,0.30)'; ctx.fillRect(0,0,VW,VH);
       }
+      // pale moon behind the storm, haloed in haze
+      {
+        const mx = VW-92, my = 32;
+        ctx.fillStyle = 'rgba(200,190,230,0.07)'; ctx.fillRect(mx-11, my-11, 36, 36);
+        ctx.fillStyle = 'rgba(200,190,230,0.10)'; ctx.fillRect(mx-5, my-5, 24, 24);
+        ctx.fillStyle = strike? '#d8ccf2' : '#867ca6';
+        ctx.fillRect(mx, my, 14, 14); ctx.fillRect(mx+2, my-2, 10, 18); ctx.fillRect(mx-2, my+2, 18, 10);
+        ctx.fillStyle = 'rgba(10,8,24,0.22)';                     // craters
+        ctx.fillRect(mx+3, my+4, 4, 3); ctx.fillRect(mx+9, my+9, 3, 2); ctx.fillRect(mx+7, my+1, 2, 2);
+      }
       // distant storm clouds
       for(let i=0;i<4;i++){
         const cxx = ((i*150 + px*0.5) % 640 + 640) % 640 - 120;
         mkCloud(cxx, 14+(i*13)%26, i%2?1.2:0.9, '#3a2f52', '#2a2340', '#1e1830');
       }
+      // low extra cloud layer drifting the other way
+      for(let i=0;i<3;i++){
+        const cxx = ((i*210+90 - px*0.35) % 700 + 700) % 700 - 130;
+        mkCloud(cxx, 52+(i*17)%20, 0.8, '#2a2340', '#1e1830', '#161226');
+      }
+      // cloud bellies flicker faintly during the warning
+      if(warn && Math.sin(gtime*18)>0.35){
+        ctx.fillStyle = 'rgba(180,160,255,0.10)'; ctx.fillRect(0,0,VW,64);
+      }
+      // far marsh hills, half-swallowed by mist
+      ctx.fillStyle = strike? '#3c3458' : '#141a2c';
+      for(let i=0;i<6;i++){
+        const hx = ((i*175 + px*0.5) % 1050 + 1050) % 1050 - 130;
+        const hw2 = 120 + (i*37)%90, hh2 = 16 + (i*23)%16;
+        ctx.fillRect(Math.round(hx), GROUND_Y-28-hh2, hw2, hh2+28);
+      }
+      ctx.fillStyle = strike? 'rgba(120,110,170,0.25)' : 'rgba(120,140,160,0.10)';
+      ctx.fillRect(0, GROUND_Y-46, VW, 8);                        // mist band over the hills
       // far misty tree line (silhouette)
-      ctx.fillStyle = strike? '#4a4066' : '#1a2436';
       mkPines(px, GROUND_Y-8, strike? '#4a4066':'#1a2436', 1000);
-      // mid dead-tree silhouettes
+      // mid-distance broadleaf line with round canopies
+      for(let i=0;i<9;i++){
+        const bx = ((i*122+60 + px*0.72) % 1098 + 1098) % 1098 - 100;
+        if(bx<-40||bx>VW+40) continue;
+        const bh = 32 + (i*29)%22;
+        ctx.fillStyle = strike? '#453f6e' : '#111a2a';
+        ctx.fillRect(Math.round(bx)+7, GROUND_Y-bh+12, 3, bh-12);
+        ctx.fillRect(Math.round(bx)-4, GROUND_Y-bh, 24, 10);
+        ctx.fillRect(Math.round(bx), GROUND_Y-bh-5, 16, 6);
+        ctx.fillRect(Math.round(bx)-8, GROUND_Y-bh+8, 32, 7);
+      }
+      // mid gnarled trees with fuller canopies and moss beards
       for(let i=0;i<5;i++){
         const tx = ((i*140+40 + px2) % 900 + 900) % 900 - 120;
-        if(tx<-30||tx>VW+30) continue;
+        if(tx<-40||tx>VW+40) continue;
         const th2 = 70 + (i*17)%40;
         ctx.fillStyle = strike? '#5a4e7a' : '#141c2a';
         ctx.fillRect(tx, GROUND_Y-th2, 5, th2);
+        ctx.fillRect(tx-1, GROUND_Y-6, 7, 6);                     // root flare
         // bare branches
         ctx.fillRect(tx-8, GROUND_Y-th2+12, 8, 3); ctx.fillRect(tx+5, GROUND_Y-th2+22, 9, 3);
         ctx.fillRect(tx-10, GROUND_Y-th2+2, 5, 3); ctx.fillRect(tx+5, GROUND_Y-th2+6, 7, 3);
-        // drooping canopy blob
-        ctx.fillStyle = strike? '#3a4a30' : '#0e1c14';
-        ctx.fillRect(tx-12, GROUND_Y-th2-6, 30, 12);
+        ctx.fillRect(tx-12, GROUND_Y-th2+34, 7, 2); ctx.fillRect(tx+7, GROUND_Y-th2+46, 8, 2);
+        // layered drooping canopy
+        ctx.fillStyle = strike? '#3a4a30' : '#0c1812';
+        ctx.fillRect(tx-14, GROUND_Y-th2-4, 34, 12);
+        ctx.fillStyle = strike? '#465a3a' : '#0e1c14';
+        ctx.fillRect(tx-10, GROUND_Y-th2-10, 26, 8);
+        ctx.fillRect(tx-4, GROUND_Y-th2-14, 14, 5);
+        // moss beards hanging off the branches
+        ctx.fillStyle = strike? '#3a4a30' : '#10231a';
+        ctx.fillRect(tx-7, GROUND_Y-th2+15, 2, 7); ctx.fillRect(tx+11, GROUND_Y-th2+25, 2, 6);
       }
       // swamp water sheen along the base, reflecting flashes
       for(let xx=0;xx<VW;xx+=4){
@@ -1806,11 +1876,22 @@ function drawThemeBackdrop(theme, camx, t){
         ctx.fillStyle = strike? 'rgba(200,190,255,0.5)' : 'rgba(50,90,70,0.5)';
         ctx.fillRect(xx, GROUND_Y-5+wob, 4, 5-wob);
       }
+      // will-o'-wisps drifting over the marsh
+      for(let i=0;i<6;i++){
+        const wxr = ((i*97 + Math.sin(gtime*0.5+i*2)*30 + px2) % (VW+60) + VW+60) % (VW+60) - 30;
+        const wy = GROUND_Y-22 - (i*13)%38 + Math.sin(gtime*1.3+i)*4;
+        if(Math.sin(gtime*2.4+i*1.7) > -0.2){
+          ctx.fillStyle = i%2? 'rgba(140,220,180,0.16)' : 'rgba(140,200,255,0.16)';
+          ctx.fillRect(Math.round(wxr)-1, Math.round(wy)-1, 4, 4);
+          ctx.fillStyle = i%2? 'rgba(150,230,190,0.65)' : 'rgba(150,210,255,0.6)';
+          ctx.fillRect(Math.round(wxr), Math.round(wy), 2, 2);
+        }
+      }
       // drifting fog banks
-      for(let i=0;i<3;i++){
-        const fxx = ((i*220 + t*8) % (VW+120)) - 60;
-        ctx.fillStyle = 'rgba(150,170,180,0.10)';
-        ctx.fillRect(Math.round(fxx), GROUND_Y-30-(i*10), 120, 16);
+      for(let i=0;i<4;i++){
+        const fxx = ((i*180 + t*(6+i*2)) % (VW+140)) - 70;
+        ctx.fillStyle = i%2? 'rgba(150,170,180,0.10)' : 'rgba(130,150,175,0.07)';
+        ctx.fillRect(Math.round(fxx), GROUND_Y-28-(i*11), 130, 15);
       }
       // rain streaks
       for(let i=0;i<40;i++){
@@ -1986,7 +2067,7 @@ function drawThemeBackdrop(theme, camx, t){
       }
       for(let i=0;i<3;i++){
         const mxx = ((i*300+180 + px2*2) % 900 + 900) % 900 - 100;
-        const my = 116;
+        const my = 104;
         ctx.fillStyle = '#39415a'; ctx.fillRect(mxx-2, my-2, 44, 28);
         ctx.fillStyle = '#0a1a14'; ctx.fillRect(mxx, my, 40, 24);
         ctx.fillStyle = '#57e8a0';
@@ -2234,16 +2315,67 @@ function drawHazard(h, camx){
     }
     case 'cover': {
       if(L.def.theme==='swamp'){
-        // a dense tree canopy on two trunks — shelter from the strike
-        ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x+4, 168, 4, GROUND_Y-168);
-        ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x+h.w-8, 168, 4, GROUND_Y-168);
-        ctx.fillStyle = '#0e2416'; ctx.fillRect(x-8, 150, h.w+16, 16);
-        ctx.fillStyle = '#1c3a24'; ctx.fillRect(x-8, 150, h.w+16, 4);
-        ctx.fillStyle = '#2c5a34';
-        for(let i=0;i<h.w+8;i+=6) ctx.fillRect(x-6+i, 152, 3, 2);
-        // hanging vines / moss
-        ctx.fillStyle = '#3c6444';
-        ctx.fillRect(x, 166, 1, 6); ctx.fillRect(x+h.w-4, 166, 1, 5); ctx.fillRect(x+h.w/2, 166, 1, 7);
+        // a real gnarled marsh tree — dense layered canopy over two mossy trunks
+        const lit = flarePhase()==='burst';
+        const seed = h.x*0.37;
+        // trunks with bark shading, grooves and root flares
+        const t1 = x+4, t2 = x+h.w-10;
+        for(const tx of [t1,t2]){
+          ctx.fillStyle = '#2c1e12'; ctx.fillRect(tx, 150, 6, GROUND_Y-150);
+          ctx.fillStyle = '#4a3420'; ctx.fillRect(tx+1, 152, 2, GROUND_Y-152);   // lit side
+          ctx.fillStyle = '#1c130a';                                             // bark grooves
+          ctx.fillRect(tx+4, 164+((tx*7)%14), 1, 9); ctx.fillRect(tx+4, 192, 1, 10);
+          ctx.fillRect(tx+1, 178+((tx*5)%10), 1, 6);
+          // root flare spreading into the mud
+          ctx.fillStyle = '#2c1e12';
+          ctx.fillRect(tx-2, GROUND_Y-4, 10, 4); ctx.fillRect(tx-4, GROUND_Y-2, 14, 2);
+          ctx.fillStyle = '#1c130a'; ctx.fillRect(tx-4, GROUND_Y-1, 3, 1); ctx.fillRect(tx+8, GROUND_Y-1, 3, 1);
+          // moss creeping up the bark
+          ctx.fillStyle = '#2c5a34'; ctx.fillRect(tx, 172+((tx*3)%14), 2, 5); ctx.fillRect(tx+4, 200, 2, 4);
+        }
+        // branch arms reaching up into the canopy
+        ctx.fillStyle = '#2c1e12';
+        ctx.fillRect(t1-6, 152, 8, 3); ctx.fillRect(t1+5, 146, 8, 3); ctx.fillRect(t1-3, 148, 3, 6);
+        ctx.fillRect(t2+7, 150, 8, 3); ctx.fillRect(t2-6, 145, 8, 3); ctx.fillRect(t2+5, 147, 3, 6);
+        // layered rounded canopy: deep shadow -> mid -> sunlit crown
+        const cw = h.w+24, cx0 = x-12;
+        ctx.fillStyle = '#0a1c10';
+        ctx.fillRect(cx0+4, 154, cw-8, 14);
+        ctx.fillRect(cx0, 146, cw, 12);
+        ctx.fillStyle = '#12301c';
+        ctx.fillRect(cx0+2, 140, cw-4, 10);
+        ctx.fillRect(cx0+8, 135, cw-16, 8);
+        ctx.fillStyle = '#1c4426';
+        ctx.fillRect(cx0+6, 137, cw-12, 5);
+        ctx.fillRect(cx0+14, 131, cw-28, 6);
+        // lumpy silhouette bumps so it doesn't read as a box
+        ctx.fillStyle = '#12301c';
+        ctx.fillRect(cx0-3, 150, 5, 9); ctx.fillRect(cx0+cw-2, 148, 5, 10);
+        ctx.fillRect(cx0+9, 129, 11, 3); ctx.fillRect(cx0+cw-25, 128, 13, 4);
+        ctx.fillStyle = '#0a1c10';
+        ctx.fillRect(cx0+2, 164, 8, 4); ctx.fillRect(cx0+cw-11, 163, 9, 5); ctx.fillRect(cx0+cw/2-4, 166, 9, 4);
+        // seeded leaf-cluster highlights (static, no flicker)
+        for(let i=0;i<11;i++){
+          const lx = cx0+4 + Math.floor(hsh(seed+i)*(cw-10));
+          const ly = 133 + Math.floor(hsh(seed+i+50)*28);
+          ctx.fillStyle = i%3? '#2c5a34' : '#3c7a44';
+          ctx.fillRect(lx, ly, 3, 2);
+        }
+        // the crown catches the lightning flash
+        if(lit){
+          ctx.fillStyle = 'rgba(214,196,255,0.55)';
+          ctx.fillRect(cx0+7, 130, cw-14, 2);
+          ctx.fillRect(cx0+1, 140, 4, 2); ctx.fillRect(cx0+cw-5, 139, 4, 2);
+        }
+        // hanging moss and vines swaying under the canopy
+        for(let i=0;i<6;i++){
+          const vx = x-6 + Math.floor((i+0.5)*(h.w+12)/6);
+          const vl = 5 + Math.floor(hsh(seed+i+90)*7);
+          const sway = Math.round(Math.sin(gtime*1.6 + i*1.3 + h.x)*1);
+          ctx.fillStyle = i%2? '#2c5a34' : '#3c6444';
+          ctx.fillRect(vx+sway, 165, 1, vl);
+          if(i%3===0){ ctx.fillStyle = '#3c7a44'; ctx.fillRect(vx+sway, 165+vl, 1, 1); }
+        }
         break;
       }
       // basalt shelter: roof slab on slim supports (pass-through)
@@ -2591,11 +2723,11 @@ function drawDrifters(dt){
 
 /* the meadow at dusk: home of the title, intro, level select, and the end */
 function drawMeadowDusk(px, withSun){
-  ctx.fillStyle = '#1c2440'; ctx.fillRect(0,0,VW,62);
-  ctx.fillStyle = '#3c3a6c'; ctx.fillRect(0,62,VW,44);
-  ctx.fillStyle = '#7a5a94'; ctx.fillRect(0,106,VW,42);
-  ctx.fillStyle = '#c88aa8'; ctx.fillRect(0,148,VW,46);
-  ctx.fillStyle = '#e8b4c0'; ctx.fillRect(0,194,VW,52);
+  ctx.fillStyle = '#1c2440'; ctx.fillRect(0,0,VW,49);
+  ctx.fillStyle = '#3c3a6c'; ctx.fillRect(0,49,VW,49);
+  ctx.fillStyle = '#7a5a94'; ctx.fillRect(0,98,VW,49);
+  ctx.fillStyle = '#c88aa8'; ctx.fillRect(0,147,VW,49);
+  ctx.fillStyle = '#e8b4c0'; ctx.fillRect(0,196,VW,50);
   // stars fading in up top, and other worlds far away
   for(let i=0;i<42;i++){
     const sx = Math.floor(hsh(i)*VW), sy = Math.floor(hsh(i+60)*96);
@@ -2608,8 +2740,6 @@ function drawMeadowDusk(px, withSun){
   drawPlanet(258, 16, 3, '#6b3f92', '#b06ce8');
   if(withSun){
     const sx=240, sy=206, r=26;
-    ctx.fillStyle = 'rgba(255,200,120,0.16)'; ctx.fillRect(0, sy-10, VW, 22);
-    ctx.fillStyle = 'rgba(255,220,150,0.12)'; ctx.fillRect(0, sy-22, VW, 12);
     for(let yy=-r; yy<=r; yy++){
       const w2 = Math.floor(Math.sqrt(r*r - yy*yy));
       ctx.fillStyle = yy<-8? '#ffe9a8' : (yy<8? '#ffca6a':'#ff9a5c');
@@ -2734,7 +2864,10 @@ function updateDrawClear(dt){
   drawPlay();
   ctx.fillStyle = 'rgba(6,8,16,0.5)'; ctx.fillRect(0,0,VW,VH);
   drawTextShadow('LEVEL CLEAR!', VW/2, 112, 3, '#79d65c', '#0a2410', 'center');
-  if(stateT > 1.4){ loadLevel(levelIndex+1); setState('card'); }
+  if(stateT > 1.4){
+    if(levelIndex === 8){ setState('noclip'); playSound('portal'); }  // fall between worlds into the backrooms
+    else { loadLevel(levelIndex+1); setState('card'); }
+  }
 }
 
 function updateDrawVictory(dt){
@@ -2830,7 +2963,6 @@ function drawVictoryVoyage(dt){
     const bob = through>0? Math.round(through*4) : 0;
     drawSprite(SPR.player_back, Math.round(baseX), GROUND_Y-16-(step?1:0)+bob, false, 1);
     drawSprite(SPR.princess_back, Math.round(baseX)+18, GROUND_Y-18-(step?0:1)+bob, false, 1);
-    ctx.fillStyle = PAL.k; ctx.fillRect(Math.round(baseX)+10, GROUND_Y-8, 4, 2);   // linked hands
     ctx.globalAlpha = 1;
     // scatter of noclip pixels peeling off them into the portal
     if(through>0){
@@ -2865,7 +2997,6 @@ function drawVictoryEnd(dt){
   /* the two of them, watching the sun go down (centered) */
   drawSprite(SPR.player_back, 228, 230, false, 1);
   drawSprite(SPR.princess_back, 248, 228, false, 1);
-  ctx.fillStyle = PAL.k; ctx.fillRect(239, 238, 4, 2);
   /* a small heart above and between them */
   const hb = Math.sin(gtime*3)*1.5;
   drawHeart(241, 214+hb, 2, Math.sin(gtime*3)>-0.3? '#ff5a7a':'#ff8aa0');
