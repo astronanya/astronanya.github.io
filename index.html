@@ -1850,27 +1850,41 @@ function drawThemeBackdrop(theme, camx, t){
         ctx.fillRect(Math.round(bx), GROUND_Y-bh-5, 16, 6);
         ctx.fillRect(Math.round(bx)-8, GROUND_Y-bh+8, 32, 7);
       }
-      // mid gnarled trees with fuller canopies and moss beards
+      // mid broadleaf trees — short thick leaning trunks under big rounded canopies
       for(let i=0;i<5;i++){
-        const tx = Math.round(((i*140+40 + px2) % 900 + 900) % 900 - 120);
-        if(tx<-40||tx>VW+40) continue;
-        const th2 = 70 + (i*17)%40;
+        const tx = Math.round(((i*170+40 + px2) % 900 + 900) % 900 - 120);
+        if(tx<-70||tx>VW+70) continue;
+        const th2 = 34 + (i*17)%14;              // short trunk height
+        const lean = (i%2? 1:-1) * 3;            // slight lean like the reference
+        const topY = GROUND_Y - th2;
+        // trunk: thick, tapering, leaning
         ctx.fillStyle = strike? '#5a4e7a' : '#141c2a';
-        ctx.fillRect(tx, GROUND_Y-th2, 5, th2);
-        ctx.fillRect(tx-1, GROUND_Y-6, 7, 6);                     // root flare
-        // bare branches
-        ctx.fillRect(tx-8, GROUND_Y-th2+12, 8, 3); ctx.fillRect(tx+5, GROUND_Y-th2+22, 9, 3);
-        ctx.fillRect(tx-10, GROUND_Y-th2+2, 5, 3); ctx.fillRect(tx+5, GROUND_Y-th2+6, 7, 3);
-        ctx.fillRect(tx-12, GROUND_Y-th2+34, 7, 2); ctx.fillRect(tx+7, GROUND_Y-th2+46, 8, 2);
-        // layered drooping canopy
-        ctx.fillStyle = strike? '#2a3822' : '#060f09';
-        ctx.fillRect(tx-14, GROUND_Y-th2-4, 34, 12);
-        ctx.fillStyle = strike? '#33422a' : '#08130c';
-        ctx.fillRect(tx-10, GROUND_Y-th2-10, 26, 8);
-        ctx.fillRect(tx-4, GROUND_Y-th2-14, 14, 5);
-        // moss beards hanging off the branches
+        ctx.fillRect(tx-5, GROUND_Y-7, 14, 7);                 // root flare
+        ctx.fillRect(tx-3, GROUND_Y-Math.round(th2*0.55), 10, Math.round(th2*0.55));
+        ctx.fillRect(tx-2+lean, topY, 8, Math.round(th2*0.6));
+        ctx.fillRect(tx+lean*2, topY-5, 6, 9);                 // trunk tip reaching into canopy
+        // low branches poking out from under the canopy
+        ctx.fillRect(tx-13+lean, topY+2, 11, 3); ctx.fillRect(tx+6+lean, topY+5, 12, 3);
+        // canopy: broad layered dome, much wider than it is tall
+        const cw = 34 + (i*13)%10;               // canopy half-width
+        const cx2 = tx + lean*2 + 2;
+        const cb = topY - 3;                     // canopy bottom edge
+        ctx.fillStyle = strike? '#2a3822' : '#060f09';         // dark underside
+        ctx.fillRect(cx2-cw, cb-11, cw*2, 12);
+        ctx.fillRect(cx2-cw+6, cb-1, cw*2-12, 5);              // drooping lower lobes
+        ctx.fillStyle = strike? '#33422a' : '#08130c';         // mid layer + side lobes
+        ctx.fillRect(cx2-cw+4, cb-21, cw*2-8, 12);
+        ctx.fillRect(cx2-cw-4, cb-15, 9, 9); ctx.fillRect(cx2+cw-5, cb-16, 9, 9);
+        ctx.fillStyle = strike? '#3d4f33' : '#0b1a10';         // upper layer
+        ctx.fillRect(cx2-cw+10, cb-29, cw*2-20, 10);
+        ctx.fillRect(cx2-7, cb-33, 17, 6);                     // rounded crown clump
+        ctx.fillStyle = strike? '#4a5f3e' : '#0e2114';         // leafy highlight clumps
+        ctx.fillRect(cx2-cw+14, cb-27, 10, 4); ctx.fillRect(cx2+4, cb-31, 9, 4);
+        ctx.fillRect(cx2-2, cb-23, 12, 3);
+        // moss/vine strands hanging off the canopy edges
         ctx.fillStyle = strike? '#2a3822' : '#0a1810';
-        ctx.fillRect(tx-7, GROUND_Y-th2+15, 2, 7); ctx.fillRect(tx+11, GROUND_Y-th2+25, 2, 6);
+        ctx.fillRect(cx2-cw+8, cb+3, 2, 8); ctx.fillRect(cx2+cw-10, cb+2, 2, 10);
+        ctx.fillRect(cx2+3, cb+4, 2, 6);
       }
       // swamp water sheen along the base, reflecting flashes
       for(let xx=0;xx<VW;xx+=4){
@@ -2317,74 +2331,129 @@ function drawHazard(h, camx){
     }
     case 'cover': {
       if(L.def.theme==='swamp'){
-        // a broad oak like the reference: big dappled rounded crown spanning
-        // exactly the safe zone, small forked trunk centered, wide roots
+        // a broad oak like the reference: wide clumpy crown low over a short,
+        // thick, leaning trunk, wide roots
         const lit = flarePhase()==='burst';
         const seed = h.x*0.37;
         const mx = x + h.w/2;
-        const cyTop = 116, cyBot = 168;
-        // --- trunk first (crown overlaps its top) ---
-        for(let yy=160; yy<GROUND_Y; yy+=2){
-          const p = (yy-160)/(GROUND_Y-160);
-          const tw = 10 + Math.round(p*4);                 // widens toward the base
-          ctx.fillStyle = '#5f4128'; ctx.fillRect(mx-(tw>>1), yy, tw, 2);
-          ctx.fillStyle = '#8a6240'; ctx.fillRect(mx-(tw>>1)+1, yy, 3, 2);   // lit left side
-          ctx.fillStyle = '#33200f'; ctx.fillRect(mx+(tw>>1)-2, yy, 2, 2);   // shaded right edge
+        const cyTop = 132, cyBot = 174;                    // shallow crown → wide, flat canopy
+        // --- trunk first (crown overlaps its top): thick, tapered, gnarled S-curve ---
+        for(let yy=cyBot-10; yy<GROUND_Y; yy+=2){
+          const p = (yy-(cyBot-10))/(GROUND_Y-(cyBot-10));
+          const tw = 12 + Math.round(p*6);                 // widens toward the base
+          const cxr = mx - Math.round(8*Math.pow(1-p,1.5) - 3*Math.sin((1-p)*5+seed)); // curving lean
+          ctx.fillStyle = '#503620'; ctx.fillRect(cxr-(tw>>1), yy, tw, 2);
+          ctx.fillStyle = '#75522f'; ctx.fillRect(cxr-(tw>>1)+1, yy, 3, 2);   // lit left side
+          ctx.fillStyle = '#281809'; ctx.fillRect(cxr+(tw>>1)-2, yy, 2, 2);   // shaded right edge
         }
         // forked limb splitting off up-right into the leaves
-        for(let yy=192; yy>156; yy-=2){
-          const p = (192-yy)/36;
-          const fx = mx+3 + Math.round(p*12);
-          ctx.fillStyle = '#5f4128'; ctx.fillRect(fx, yy, 5, 3);
-          ctx.fillStyle = '#33200f'; ctx.fillRect(fx+3, yy, 2, 3);
+        for(let yy=GROUND_Y-14; yy>cyBot-12; yy-=2){
+          const p = (GROUND_Y-14-yy)/24;
+          const fx = mx+4 + Math.round(p*10);
+          ctx.fillStyle = '#503620'; ctx.fillRect(fx, yy, 5, 3);
+          ctx.fillStyle = '#281809'; ctx.fillRect(fx+3, yy, 2, 3);
         }
         // bark grooves, knot, a touch of moss
-        ctx.fillStyle = '#33200f';
-        ctx.fillRect(mx-1, 196+((h.x*3)%10), 1, 10); ctx.fillRect(mx+2, 178, 1, 8);
-        ctx.fillRect(mx-3, 188+((h.x*7)%6), 2, 2);
-        ctx.fillStyle = '#2c5a34'; ctx.fillRect(mx-5, 206+((h.x*5)%8), 2, 5);
+        ctx.fillStyle = '#281809';
+        ctx.fillRect(mx-2, cyBot+8+((h.x*3)%8), 1, 9); ctx.fillRect(mx+1, cyBot+2, 1, 7);
+        ctx.fillRect(mx-4, cyBot+12+((h.x*7)%6), 2, 2);
+        ctx.fillStyle = '#2c5a34'; ctx.fillRect(mx-7, GROUND_Y-14+((h.x*5)%6), 2, 5);
         // wide root flares gripping the mud
-        ctx.fillStyle = '#5f4128';
+        ctx.fillStyle = '#503620';
         ctx.fillRect(mx-14, GROUND_Y-5, 28, 5);
         ctx.fillRect(mx-22, GROUND_Y-3, 44, 3);
-        ctx.fillStyle = '#33200f';                         // darker roots crossing in front
+        ctx.fillStyle = '#281809';                         // darker roots crossing in front
         ctx.fillRect(mx-22, GROUND_Y-2, 8, 2); ctx.fillRect(mx+15, GROUND_Y-2, 8, 2);
         ctx.fillRect(mx-6, GROUND_Y-7, 5, 3); ctx.fillRect(mx+4, GROUND_Y-6, 4, 2);
-        ctx.fillStyle = '#8a6240'; ctx.fillRect(mx-12, GROUND_Y-4, 5, 2);
-        // --- the crown: rounded, dappled, spanning exactly the safe zone ---
+        ctx.fillStyle = '#75522f'; ctx.fillRect(mx-12, GROUND_Y-4, 5, 2);
+        // --- the crown: a broad flat canopy, far wider than it is tall ---
+        const cwHalf = h.w/2 + 22;                         // spreads well past the safe zone
+        const prof = v => {
+          let wf;
+          if(v<0.18)      wf = 0.66 + (v/0.18)*0.34;       // quick flare out from the flat top
+          else if(v<0.62) wf = 1.0 + 0.04*Math.sin(v*11+seed); // long, level widest band
+          else            wf = 1.0 - (v-0.62)*1.15;        // undercut toward the trunk
+          return Math.max(0.25, wf);
+        };
+        // silhouette pass: solid crown, darkening toward the underside
         for(let yy=cyTop; yy<cyBot; yy+=3){
           const v = (yy-cyTop)/(cyBot-cyTop);
-          const wf = 0.60 + 0.40*Math.sin(Math.PI*Math.min(1, v*1.3));
+          const wf = prof(v);
           const jl = Math.floor(hsh(seed+yy*3)*5)-2, jr = Math.floor(hsh(seed+yy*7)*5)-2;
-          const lx = Math.round(x + h.w/2 - h.w/2*wf) + jl;
-          const rx = Math.round(x + h.w/2 + h.w/2*wf) + jr;
-          ctx.fillStyle = '#3f8a4a';                       // mid-green base row
+          const lx = Math.round(mx - cwHalf*wf) + jl;
+          const rx = Math.round(mx + cwHalf*wf) + jr;
+          ctx.fillStyle = v<0.38? '#2f6533' : (v<0.75? '#24512d' : '#16351f');
           ctx.fillRect(lx, yy, rx-lx, 3);
-          // dappled cells: light toward the upper-left, dark shadow lower-right
-          for(let xx=lx; xx<rx; xx+=4){
-            const u = (xx-lx)/Math.max(1, rx-lx);
-            const shade = u*0.55 + v*0.55 + (hsh(seed+xx*13+yy*29)-0.5)*0.5;
-            if(shade < 0.36) ctx.fillStyle = '#6cbf5c';
-            else if(shade > 0.76) ctx.fillStyle = '#1e4634';
-            else continue;
-            ctx.fillRect(xx, yy, 4, 3);
-          }
-          // noisy leaf-cluster nibbles along the edges
-          if(hsh(seed+yy*11)>0.5){ ctx.fillStyle = v<0.5? '#6cbf5c':'#3f8a4a'; ctx.fillRect(lx-2, yy, 2, 2); }
-          if(hsh(seed+yy*17)>0.5){ ctx.fillStyle = '#1e4634'; ctx.fillRect(rx, yy+1, 2, 2); }
         }
-        // ragged skirt tufts hanging under the crown
-        for(let i=0;i<5;i++){
-          const dx = x+4 + Math.floor(hsh(seed+i*13)*(h.w-14));
-          ctx.fillStyle = i%2? '#1e4634' : '#3f8a4a';
-          ctx.fillRect(dx, cyBot-2, 4+Math.floor(hsh(seed+i+30)*4), 4+Math.floor(hsh(seed+i+60)*5));
+        // clump pass: rounded leaf clusters, lit on top, shadowed underneath
+        const clump = (cxm, cyy, cwd, top, body) => {
+          ctx.fillStyle = top;       ctx.fillRect(cxm-(cwd>>1)+3, cyy-4, cwd-6, 2);
+          ctx.fillStyle = body;      ctx.fillRect(cxm-(cwd>>1)+1, cyy-2, cwd-2, 3);
+          ctx.fillStyle = body;      ctx.fillRect(cxm-(cwd>>1),   cyy+1, cwd,   3);
+          ctx.fillStyle = '#0e211a'; ctx.fillRect(cxm-(cwd>>1)+2, cyy+4, cwd-4, 2);
+        };
+        for(let i=0;i<9;i++){                              // clumps bumping along the flat top
+          const cwd = 18 + Math.floor(hsh(seed+i*19)*14);
+          const cxm = Math.round(mx + (hsh(seed+i*23)*2-1)*cwHalf*0.82);
+          clump(cxm, cyTop+((i*3)%5)-2, cwd, '#4c8c46', '#3d7a3a');
+        }
+        for(let i=0;i<11;i++){                             // big clusters filling the body
+          const cv = 0.14 + hsh(seed+i*61)*0.72;
+          const cyy = Math.round(cyTop + cv*(cyBot-cyTop));
+          const cwd = 18 + Math.floor(hsh(seed+i*67)*16);
+          const cxm = Math.round(mx + (hsh(seed+i*71)*2-1)*Math.max(4, cwHalf*prof(cv)*0.92 - cwd/2));
+          const lv = cv*0.72 + (hsh(seed+i*83)-0.5)*0.3;
+          const top  = lv<0.36? '#4c8c46' : (lv<0.64? '#3d7a3a' : '#2f6533');
+          const body = lv<0.36? '#3d7a3a' : (lv<0.64? '#2f6533' : '#24512d');
+          clump(cxm, cyy, cwd, top, body);
+        }
+        // chunky tufts along the rim — solid 3-5px leaf bunches instead of speck noise
+        for(let i=0;i<16;i++){
+          const u = (i+0.5)/16;
+          const edgeV = 0.08 + hsh(seed+i*7.1)*0.7;
+          const syy = Math.round(cyTop + edgeV*(cyBot-cyTop));
+          const side = i%2? 1 : -1;
+          const sxx = Math.round(mx + side*(cwHalf*prof(edgeV) - 2 + hsh(seed+i*9.7)*5));
+          const tw2 = 3 + Math.floor(hsh(seed+i*5.9)*3);
+          ctx.fillStyle = edgeV<0.35? '#4c8c46' : '#2f6533';
+          ctx.fillRect(sxx-(tw2>>1), syy, tw2, 3);
+          ctx.fillStyle = edgeV<0.35? '#3d7a3a' : '#24512d';
+          ctx.fillRect(sxx-(tw2>>1)+1, syy+3, tw2-1, 2);
+        }
+        for(let i=0;i<6;i++){                              // a few tufts crowning the top line
+          const cxm = Math.round(mx + (hsh(seed+i*43)*2-1)*cwHalf*0.7);
+          ctx.fillStyle = '#4c8c46'; ctx.fillRect(cxm-3, cyTop-4, 7, 3);
+          ctx.fillStyle = '#3d7a3a'; ctx.fillRect(cxm-2, cyTop-1, 5, 2);
+        }
+        // ragged skirt tufts hanging under the crown — wide and flat, like drooping leaf layers
+        for(let i=0;i<8;i++){
+          const dx = Math.round(mx - cwHalf*0.8) + Math.floor(hsh(seed+i*13)*(cwHalf*1.6));
+          ctx.fillStyle = i%2? '#0e211a' : '#24512d';
+          ctx.fillRect(dx, cyBot-2, 8+Math.floor(hsh(seed+i+30)*7), 3+Math.floor(hsh(seed+i+60)*2));
+        }
+        // weeping strands draping off the canopy, longest at the outer edges
+        for(let i=0;i<9;i++){
+          const u = (i+0.5)/9;
+          const sxr = Math.round(mx - cwHalf*0.9) + Math.floor(u*(cwHalf*1.8)) + Math.floor((hsh(seed+i*7)-0.5)*8);
+          const edge = Math.abs(u-0.5)*2;
+          let sy = cyBot - 6 + Math.floor(hsh(seed+i*29)*6);
+          const len = Math.min(8 + Math.floor(hsh(seed+i*13)*(8 + edge*30)), 208-sy);
+          for(let k=0;k<len;k+=3){
+            const wob = Math.floor(hsh(seed+i*31+Math.floor(k/6)*17)*2);
+            ctx.fillStyle = k>len-5? '#3d7a3a' : (hsh(seed+i*5+k*11)<0.5? '#24512d':'#0e211a');
+            ctx.fillRect(sxr+wob, sy+k, 2, 3);
+          }
+          if(hsh(seed+i*41)>0.45){                          // small leaf cluster at the tip
+            ctx.fillStyle = '#24512d';
+            ctx.fillRect(sxr-1, sy+len, 4, 2);
+          }
         }
         // the crown catches the lightning flash
         if(lit){
           ctx.fillStyle = 'rgba(214,196,255,0.55)';
-          ctx.fillRect(mx-Math.round(h.w*0.30), cyTop-1, Math.round(h.w*0.60), 2);
-          ctx.fillRect(mx-Math.round(h.w*0.46), cyTop+8, 4, 2);
-          ctx.fillRect(mx+Math.round(h.w*0.42), cyTop+7, 4, 2);
+          ctx.fillRect(mx-Math.round(cwHalf*0.62), cyTop-1, Math.round(cwHalf*1.24), 2);
+          ctx.fillRect(mx-Math.round(cwHalf*0.92), cyTop+7, 5, 2);
+          ctx.fillRect(mx+Math.round(cwHalf*0.86), cyTop+6, 5, 2);
         }
         break;
       }
@@ -2732,12 +2801,24 @@ function drawDrifters(dt){
 }
 
 /* the meadow at dusk: home of the title, intro, level select, and the end */
+const DUSK_KEYS = ['#1c2440','#3c3a6c','#7a5a94','#c88aa8','#e8b4c0'];
+const DUSK_BANDS = (function(){
+  const rgb = DUSK_KEYS.map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
+  const cols = [], n = 28; // fine 9px steps: reads as a gradient, stays pixel-crisp
+  for(let i=0;i<n;i++){
+    const p = i/(n-1)*(rgb.length-1);
+    const s = Math.min(Math.floor(p), rgb.length-2), t = p-s;
+    const c = rgb[s].map((v,k)=>Math.round(v+(rgb[s+1][k]-v)*t));
+    cols.push('rgb('+c[0]+','+c[1]+','+c[2]+')');
+  }
+  return cols;
+})();
 function drawMeadowDusk(px, withSun){
-  ctx.fillStyle = '#1c2440'; ctx.fillRect(0,0,VW,49);
-  ctx.fillStyle = '#3c3a6c'; ctx.fillRect(0,49,VW,49);
-  ctx.fillStyle = '#7a5a94'; ctx.fillRect(0,98,VW,49);
-  ctx.fillStyle = '#c88aa8'; ctx.fillRect(0,147,VW,49);
-  ctx.fillStyle = '#e8b4c0'; ctx.fillRect(0,196,VW,50);
+  const bh = 9;
+  for(let i=0;i<DUSK_BANDS.length;i++){
+    ctx.fillStyle = DUSK_BANDS[i];
+    ctx.fillRect(0, i*bh, VW, Math.min(bh, 246-i*bh));
+  }
   // stars fading in up top, and other worlds far away
   for(let i=0;i<42;i++){
     const sx = Math.floor(hsh(i)*VW), sy = Math.floor(hsh(i+60)*96);
@@ -2816,15 +2897,15 @@ function updateDrawTitle(dt){
   if(hasSave || done){
     if(tap('ArrowDown')||tap('s')||tap('S')){ titleSel = (titleSel+1)%3; playSound('select'); }
     if(tap('ArrowUp')||tap('w')||tap('W')){ titleSel = (titleSel+2)%3; playSound('select'); }
-    const b0 = drawButton('START', 122, titleSel===0);
-    const b1 = drawButton(done? 'REPLAY' : 'CONTINUE', 146, titleSel===1);
-    const b2 = drawButton('LEVELS', 170, titleSel===2);
+    const b0 = drawButton('START', 109, titleSel===0);
+    const b1 = drawButton(done? 'REPLAY' : 'CONTINUE', 133, titleSel===1);
+    const b2 = drawButton('LEVELS', 157, titleSel===2);
     if(hoverBtn(b0)){ if(mouseMoved) titleSel = 0; if(mouseClick){ titleSel = 0; confirm = true; } }
     if(hoverBtn(b1)){ if(mouseMoved) titleSel = 1; if(mouseClick){ titleSel = 1; confirm = true; } }
     if(hoverBtn(b2)){ if(mouseMoved) titleSel = 2; if(mouseClick){ titleSel = 2; confirm = true; } }
   } else {
     titleSel = 0;
-    const b0 = drawButton('START', 148, true);
+    const b0 = drawButton('START', 133, true);
     if(hoverBtn(b0) && mouseClick) confirm = true;
   }
   drawText('ARROWS/WASD MOVE   SPACE/W JUMP', VW/2, 200, 1, '#7a4460', 'center');
