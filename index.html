@@ -2375,37 +2375,90 @@ function drawHazard(h, camx){
           else            wf = 1.0 - (v-0.62)*1.15;        // undercut toward the trunk
           return Math.max(0.25, wf);
         };
-        // silhouette pass: solid crown, darkening toward the underside
+        // reference-style mottled shading: the crown reads as leaf noise — small
+        // chunky patches scattered over a soft light-to-dark gradient, light
+        // pooling on top and dark pockets tucked through the body. Natural greens.
+        const HI='#77b463', LT='#569a4a', MID='#4c8c46', DK='#3d7a3a';
+        const DP='#2f6533', DP2='#234f2b', SH='#1c4436', SH2='#173a2c';
+        // silhouette pass: solid crown with a soft vertical gradient
         for(let yy=cyTop; yy<cyBot; yy+=3){
           const v = (yy-cyTop)/(cyBot-cyTop);
           const wf = prof(v);
           const jl = Math.floor(hsh(seed+yy*3)*5)-2, jr = Math.floor(hsh(seed+yy*7)*5)-2;
           const lx = Math.round(mx - cwHalf*wf) + jl;
           const rx = Math.round(mx + cwHalf*wf) + jr;
-          ctx.fillStyle = v<0.38? '#2f6533' : (v<0.75? '#24512d' : '#16351f');
+          ctx.fillStyle = v<0.30? MID : (v<0.62? DK : DP2);
           ctx.fillRect(lx, yy, rx-lx, 3);
         }
-        // clump pass: rounded leaf clusters, lit on top, shadowed underneath
+        // clump passes: same rects as always (they define the bumpy outline),
+        // recolored to sit inside the mottled gradient
         const clump = (cxm, cyy, cwd, top, body) => {
-          ctx.fillStyle = top;       ctx.fillRect(cxm-(cwd>>1)+3, cyy-4, cwd-6, 2);
-          ctx.fillStyle = body;      ctx.fillRect(cxm-(cwd>>1)+1, cyy-2, cwd-2, 3);
-          ctx.fillStyle = body;      ctx.fillRect(cxm-(cwd>>1),   cyy+1, cwd,   3);
-          ctx.fillStyle = '#0e211a'; ctx.fillRect(cxm-(cwd>>1)+2, cyy+4, cwd-4, 2);
+          ctx.fillStyle = body; ctx.fillRect(cxm-(cwd>>1)+1, cyy-2, cwd-2, 3);
+          ctx.fillStyle = body; ctx.fillRect(cxm-(cwd>>1),   cyy+1, cwd,   3);
+          ctx.fillStyle = DP2;  ctx.fillRect(cxm-(cwd>>1)+2, cyy+4, cwd-4, 2);
+          ctx.fillStyle = top;  ctx.fillRect(cxm-(cwd>>1)+3, cyy-4, cwd-6, 3);
         };
-        for(let i=0;i<9;i++){                              // clumps bumping along the flat top
-          const cwd = 18 + Math.floor(hsh(seed+i*19)*14);
-          const cxm = Math.round(mx + (hsh(seed+i*23)*2-1)*cwHalf*0.82);
-          clump(cxm, cyTop+((i*3)%5)-2, cwd, '#4c8c46', '#3d7a3a');
-        }
         for(let i=0;i<11;i++){                             // big clusters filling the body
           const cv = 0.14 + hsh(seed+i*61)*0.72;
           const cyy = Math.round(cyTop + cv*(cyBot-cyTop));
           const cwd = 18 + Math.floor(hsh(seed+i*67)*16);
           const cxm = Math.round(mx + (hsh(seed+i*71)*2-1)*Math.max(4, cwHalf*prof(cv)*0.92 - cwd/2));
           const lv = cv*0.72 + (hsh(seed+i*83)-0.5)*0.3;
-          const top  = lv<0.36? '#4c8c46' : (lv<0.64? '#3d7a3a' : '#2f6533');
-          const body = lv<0.36? '#3d7a3a' : (lv<0.64? '#2f6533' : '#24512d');
+          const top  = lv<0.36? LT : (lv<0.64? MID : DK);
+          const body = lv<0.36? MID : (lv<0.64? DK : DP);
           clump(cxm, cyy, cwd, top, body);
+        }
+        for(let i=0;i<9;i++){                              // clumps bumping along the flat top
+          const cwd = 18 + Math.floor(hsh(seed+i*19)*14);
+          const cxm = Math.round(mx + (hsh(seed+i*23)*2-1)*cwHalf*0.82);
+          clump(cxm, cyTop+((i*3)%5)-2, cwd, LT, MID);
+        }
+        // mottle pass: many small leaf patches; tone odds shift with depth so the
+        // tiers dissolve into each other as noise instead of hard bands
+        for(let i=0;i<140;i++){
+          const v = hsh(seed+i*17.3);
+          const yy = Math.round(cyTop + v*(cyBot-cyTop-5));
+          const half = Math.max(4, cwHalf*prof(v) - 2);
+          const xm = mx + (hsh(seed+i*23.7)*2-1)*half;
+          const bw = 3 + Math.floor(hsh(seed+i*31.1)*4);
+          const bh = 2 + (hsh(seed+i*37.9)<0.4? 1:0);
+          const x0 = Math.round(Math.max(xm-bw/2, mx-half));
+          const x1 = Math.round(Math.min(xm+bw/2, mx+half));
+          if(x1<=x0) continue;
+          const r = hsh(seed+i*43.7);
+          let c;
+          if(v<0.26)      c = r<0.34? HI : (r<0.72? LT : MID);
+          else if(v<0.52) c = r<0.16? LT : (r<0.52? MID : (r<0.82? DK : DP));
+          else if(v<0.78) c = r<0.30? DK : (r<0.68? DP : DP2);
+          else            c = r<0.38? DP2 : (r<0.72? SH : DP);
+          ctx.fillStyle = c;
+          ctx.fillRect(x0, yy, x1-x0, bh);
+        }
+        // dark shadow pockets tucked between the leaf masses (like the reference)
+        for(let i=0;i<7;i++){
+          const v = 0.32 + hsh(seed+i*53.3)*0.44;
+          const yy = Math.round(cyTop + v*(cyBot-cyTop));
+          const half = cwHalf*prof(v) - 4;
+          const xm = mx + (hsh(seed+i*59.9)*2-1)*half*0.9;
+          const bw = 6 + Math.floor(hsh(seed+i*61.7)*7);
+          const x0 = Math.round(Math.max(xm-bw/2, mx-half));
+          const x1 = Math.round(Math.min(xm+bw/2, mx+half));
+          if(x1<=x0) continue;
+          ctx.fillStyle = i%2? DP2 : '#1d4023';
+          ctx.fillRect(x0, yy, x1-x0, 3);
+        }
+        // light pooling along the top of the crown
+        for(let i=0;i<8;i++){
+          const v = hsh(seed+i*67.1)*0.14;
+          const yy = Math.round(cyTop + v*(cyBot-cyTop));
+          const half = cwHalf*prof(v) - 3;
+          const xm = mx + (hsh(seed+i*71.3)*2-1)*half*0.85;
+          const bw = 5 + Math.floor(hsh(seed+i*73.9)*6);
+          const x0 = Math.round(Math.max(xm-bw/2, mx-half));
+          const x1 = Math.round(Math.min(xm+bw/2, mx+half));
+          if(x1<=x0) continue;
+          ctx.fillStyle = i%3? HI : LT;
+          ctx.fillRect(x0, yy, x1-x0, 2);
         }
         // chunky tufts along the rim — solid 3-5px leaf bunches instead of speck noise
         for(let i=0;i<16;i++){
@@ -2415,20 +2468,20 @@ function drawHazard(h, camx){
           const side = i%2? 1 : -1;
           const sxx = Math.round(mx + side*(cwHalf*prof(edgeV) - 2 + hsh(seed+i*9.7)*5));
           const tw2 = 3 + Math.floor(hsh(seed+i*5.9)*3);
-          ctx.fillStyle = edgeV<0.35? '#4c8c46' : '#2f6533';
+          ctx.fillStyle = edgeV<0.35? LT : DP;
           ctx.fillRect(sxx-(tw2>>1), syy, tw2, 3);
-          ctx.fillStyle = edgeV<0.35? '#3d7a3a' : '#24512d';
+          ctx.fillStyle = edgeV<0.35? MID : SH;
           ctx.fillRect(sxx-(tw2>>1)+1, syy+3, tw2-1, 2);
         }
         for(let i=0;i<6;i++){                              // a few tufts crowning the top line
           const cxm = Math.round(mx + (hsh(seed+i*43)*2-1)*cwHalf*0.7);
-          ctx.fillStyle = '#4c8c46'; ctx.fillRect(cxm-3, cyTop-4, 7, 3);
-          ctx.fillStyle = '#3d7a3a'; ctx.fillRect(cxm-2, cyTop-1, 5, 2);
+          ctx.fillStyle = HI; ctx.fillRect(cxm-3, cyTop-4, 7, 3);
+          ctx.fillStyle = LT; ctx.fillRect(cxm-2, cyTop-1, 5, 2);
         }
         // ragged skirt tufts hanging under the crown — wide and flat, like drooping leaf layers
         for(let i=0;i<8;i++){
           const dx = Math.round(mx - cwHalf*0.8) + Math.floor(hsh(seed+i*13)*(cwHalf*1.6));
-          ctx.fillStyle = i%2? '#0e211a' : '#24512d';
+          ctx.fillStyle = i%2? SH2 : SH;
           ctx.fillRect(dx, cyBot-2, 8+Math.floor(hsh(seed+i+30)*7), 3+Math.floor(hsh(seed+i+60)*2));
         }
         // weeping strands draping off the canopy, longest at the outer edges
@@ -2440,18 +2493,28 @@ function drawHazard(h, camx){
           const len = Math.min(8 + Math.floor(hsh(seed+i*13)*(8 + edge*30)), 208-sy);
           for(let k=0;k<len;k+=3){
             const wob = Math.floor(hsh(seed+i*31+Math.floor(k/6)*17)*2);
-            ctx.fillStyle = k>len-5? '#3d7a3a' : (hsh(seed+i*5+k*11)<0.5? '#24512d':'#0e211a');
+            ctx.fillStyle = k>len-5? DP : (hsh(seed+i*5+k*11)<0.5? SH : SH2);
             ctx.fillRect(sxr+wob, sy+k, 2, 3);
           }
           if(hsh(seed+i*41)>0.45){                          // small leaf cluster at the tip
-            ctx.fillStyle = '#24512d';
+            ctx.fillStyle = SH;
             ctx.fillRect(sxr-1, sy+len, 4, 2);
           }
         }
-        // the crown catches the lightning flash
+        // the crown catches the lightning flash — light the clump tops so the
+        // highlight follows the bumpy canopy outline instead of a straight bar
         if(lit){
           ctx.fillStyle = 'rgba(214,196,255,0.55)';
-          ctx.fillRect(mx-Math.round(cwHalf*0.62), cyTop-1, Math.round(cwHalf*1.24), 2);
+          for(let i=0;i<9;i++){                            // same positions as the top clumps
+            const cwd = 18 + Math.floor(hsh(seed+i*19)*14);
+            const cxm = Math.round(mx + (hsh(seed+i*23)*2-1)*cwHalf*0.82);
+            const cyy = cyTop+((i*3)%5)-2;
+            ctx.fillRect(cxm-(cwd>>1)+3, cyy-4, cwd-6, 2);
+          }
+          for(let i=0;i<6;i++){                            // crowning tufts catch it too
+            const cxm = Math.round(mx + (hsh(seed+i*43)*2-1)*cwHalf*0.7);
+            ctx.fillRect(cxm-3, cyTop-4, 7, 2);
+          }
           ctx.fillRect(mx-Math.round(cwHalf*0.92), cyTop+7, 5, 2);
           ctx.fillRect(mx+Math.round(cwHalf*0.86), cyTop+6, 5, 2);
         }
