@@ -2504,7 +2504,7 @@ function drawHazard(h, camx){
         // the crown catches the lightning flash — light the clump tops so the
         // highlight follows the bumpy canopy outline instead of a straight bar
         if(lit){
-          ctx.fillStyle = 'rgba(214,196,255,0.55)';
+          ctx.fillStyle = 'rgba(205,240,180,0.55)';   // bright leaf-green flash, not lavender — keeps lit crowns green
           for(let i=0;i<9;i++){                            // same positions as the top clumps
             const cwd = 18 + Math.floor(hsh(seed+i*19)*14);
             const cxm = Math.round(mx + (hsh(seed+i*23)*2-1)*cwHalf*0.82);
